@@ -27,7 +27,7 @@ def display_image(image, title="Image"):
     plt.show()
 
 # Usage example
-image_path = 'images/chicken.png'  # Replace with your image file path
+image_path = '../../images/chicken.png'
 edges = canny_edge_detector(image_path)
 
 if edges is not None:
