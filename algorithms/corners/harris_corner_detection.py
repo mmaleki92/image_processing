@@ -24,13 +24,13 @@ def harris_corner_detector_numpy(image, k=0.04, window_size=3, threshold=0.01):
     Ixx = dx * dx
     Iyy = dy * dy
     Ixy = dx * dy
-    
+
     # Step 3: Apply Gaussian smoothing to gradient products
     sigma = 1.0
     Ixx = gaussian_filter(Ixx, sigma)
     Iyy = gaussian_filter(Iyy, sigma)
     Ixy = gaussian_filter(Ixy, sigma)
-    
+
     # Step 4: Compute Harris response
     det_M = Ixx * Iyy - Ixy * Ixy
     trace_M = Ixx + Iyy
@@ -43,7 +43,7 @@ def harris_corner_detector_numpy(image, k=0.04, window_size=3, threshold=0.01):
     # Apply threshold
     corners = np.zeros_like(R_normalized, dtype=np.uint8)
     corners[R_normalized > threshold] = 1
-    
+
     # Apply non-maximum suppression
     offset = window_size // 2
     height, width = corners.shape
@@ -176,7 +176,6 @@ def compare_harris_detectors(image_path):
     plt.show()
 
 if __name__ == "__main__":
-
 	image_path = 'algorithms/SLAM/img_01.png'  
 	compare_harris_detectors(image_path)
 
