@@ -2,10 +2,12 @@ import sys
 import numpy as np
 from PIL import Image
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, 
-                            QLabel, QSlider, QFileDialog, QWidget, QSpinBox)
+                            QLabel, QSlider, QFileDialog, QWidget, QSpinBox, QCheckBox, 
+                            QDoubleSpinBox, QGroupBox)
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import Qt
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 class ImageClusteringApp(QMainWindow):
     def __init__(self):
@@ -26,12 +28,15 @@ class ImageClusteringApp(QMainWindow):
         main_layout = QVBoxLayout(main_widget)
         
         # Control panel
-        control_layout = QHBoxLayout()
+        control_layout = QVBoxLayout()
+        
+        # First row of controls
+        top_control_layout = QHBoxLayout()
         
         # Upload button
         self.upload_button = QPushButton("Upload Image")
         self.upload_button.clicked.connect(self.upload_image)
-        control_layout.addWidget(self.upload_button)
+        top_control_layout.addWidget(self.upload_button)
         
         # K selection
         k_layout = QHBoxLayout()
@@ -41,13 +46,44 @@ class ImageClusteringApp(QMainWindow):
         self.k_spinbox.setMaximum(16)
         self.k_spinbox.setValue(5)
         k_layout.addWidget(self.k_spinbox)
-        control_layout.addLayout(k_layout)
+        top_control_layout.addLayout(k_layout)
         
         # Process button
         self.process_button = QPushButton("Apply K-means")
         self.process_button.clicked.connect(self.process_image)
         self.process_button.setEnabled(False)
-        control_layout.addWidget(self.process_button)
+        top_control_layout.addWidget(self.process_button)
+        
+        control_layout.addLayout(top_control_layout)
+        
+        # Second row of controls - spatial options
+        spatial_group = QGroupBox("Spatial Options")
+        spatial_layout = QVBoxLayout()
+        
+        # Include coordinates checkbox
+        self.include_coordinates = QCheckBox("Include pixel coordinates (x,y)")
+        self.include_coordinates.setChecked(False)
+        spatial_layout.addWidget(self.include_coordinates)
+        
+        # Coordinate weight
+        weight_layout = QHBoxLayout()
+        weight_layout.addWidget(QLabel("Spatial weight:"))
+        self.spatial_weight = QDoubleSpinBox()
+        self.spatial_weight.setMinimum(0.1)
+        self.spatial_weight.setMaximum(10.0)
+        self.spatial_weight.setSingleStep(0.1)
+        self.spatial_weight.setValue(1.0)
+        self.spatial_weight.setEnabled(False)
+        weight_layout.addWidget(self.spatial_weight)
+        spatial_layout.addLayout(weight_layout)
+        
+        # Connect checkbox to enable/disable weight control
+        self.include_coordinates.stateChanged.connect(
+            lambda state: self.spatial_weight.setEnabled(state == Qt.CheckState.Checked.value)
+        )
+        
+        spatial_group.setLayout(spatial_layout)
+        control_layout.addWidget(spatial_group)
         
         # Status label
         self.status_label = QLabel("Status: Ready")
@@ -109,6 +145,8 @@ class ImageClusteringApp(QMainWindow):
         try:
             # Get the K value
             k = self.k_spinbox.value()
+            include_coords = self.include_coordinates.isChecked()
+            spatial_weight = self.spatial_weight.value()
             
             # Apply K-means clustering
             image_array = np.array(self.original_image)
@@ -117,12 +155,33 @@ class ImageClusteringApp(QMainWindow):
             # Reshape the image to be a list of pixels
             image_array_reshaped = image_array.reshape(h * w, d)
             
+            if include_coords:
+                # Create coordinate grid
+                y_coords, x_coords = np.mgrid[0:h, 0:w]
+                
+                # Reshape coordinates to match pixel list
+                x_coords = x_coords.reshape(-1, 1)
+                y_coords = y_coords.reshape(-1, 1)
+                
+                # Scale coordinates by specified weight
+                # We normalize by image dimensions to make them comparable to color values (0-255)
+                x_normalized = x_coords * (255.0 / w) * spatial_weight
+                y_normalized = y_coords * (255.0 / h) * spatial_weight
+                
+                # Combine pixel values with coordinates
+                features = np.hstack((image_array_reshaped, x_normalized, y_normalized))
+            else:
+                features = image_array_reshaped
+            
             # Apply K-means
             kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-            labels = kmeans.fit_predict(image_array_reshaped)
+            labels = kmeans.fit_predict(features)
+            
+            # The centers will have 3 or 5 dimensions - we only want the color part (first 3)
+            centers = kmeans.cluster_centers_[:, :3]
             
             # Replace each pixel with its centroid value
-            clustered_image_array = kmeans.cluster_centers_[labels].reshape(h, w, d)
+            clustered_image_array = centers[labels].reshape(h, w, d)
             
             # Convert back to uint8
             clustered_image_array = clustered_image_array.astype(np.uint8)
@@ -138,10 +197,13 @@ class ImageClusteringApp(QMainWindow):
                 self.processed_label.width(), self.processed_label.height(),
                 Qt.AspectRatioMode.KeepAspectRatio))
             
-            self.status_label.setText(f"Status: Image clustered with K={k}")
+            spatial_mode = "with spatial coordinates" if include_coords else "color only"
+            self.status_label.setText(f"Status: Image clustered with K={k} ({spatial_mode})")
             
         except Exception as e:
             self.status_label.setText(f"Error: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
     
     def pil_to_pixmap(self, pil_image):
         # Convert PIL Image to QPixmap for display
