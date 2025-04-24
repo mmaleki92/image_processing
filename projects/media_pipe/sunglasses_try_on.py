@@ -76,7 +76,7 @@ def overlay_sunglasses(image, face_landmarks, sunglasses_img):
                   int(face_landmarks.landmark[NOSE_BRIDGE].y * image_height))
     
     # Calculate the width between eyes (add some extra width for style)
-    eye_width = int(abs(right_eye_outer[0] - left_eye_outer[0]) * 1.1)
+    eye_width = int(abs(right_eye_outer[0] - left_eye_outer[0]) * 1.7)
     
     # Calculate the top position for sunglasses (slightly above eyes)
     eye_y = min(left_eye_outer[1], right_eye_outer[1], left_eye_inner[1], right_eye_inner[1])
