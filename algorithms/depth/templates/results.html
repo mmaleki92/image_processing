@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depth Estimation Results</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            padding-top: 2rem;
+        }
+        .result-container {
+            margin-bottom: 1rem;
+        }
+        .result-image {
+            width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Depth Estimation Results</h1>
+        <div class="d-flex justify-content-between mb-3">
+            <a href="/" class="btn btn-outline-primary">Back to Home</a>
+            <a href="/camera_feed" class="btn btn-primary">Camera Feeds</a>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 result-container">
+                <h4>Left Camera</h4>
+                <img id="leftImage" src="/get_frame/left" alt="Left camera feed" class="result-image">
+            </div>
+            
+            <div class="col-md-6 result-container">
+                <h4>Right Camera</h4>
+                <img id="rightImage" src="/get_frame/right" alt="Right camera feed" class="result-image">
+            </div>
+            
+            <div class="col-md-6 result-container">
+                <h4>Disparity Map</h4>
+                <img id="disparityImage" src="/get_frame/disparity" alt="Disparity map" class="result-image">
+            </div>
+            
+            <div class="col-md-6 result-container">
+                <h4>Depth Map</h4>
+                <img id="depthImage" src="/get_frame/depth" alt="Depth map" class="result-image">
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Results Controls</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="autoUpdateCheckbox" checked>
+                    <label class="form-check-label" for="autoUpdateCheckbox">Auto-update results</label>
+                </div>
+                <div class="mb-3">
+                    <label for="updateRateRange" class="form-label">
+                        Update Rate: <span id="updateRateValue">1</span> FPS
+                    </label>
+                    <input type="range" class="form-range" min="0.5" max="30" step="0.5" value="1" id="updateRateRange">
+                </div>
+                <div class="mb-3">
+                    <button id="updateBtn" class="btn btn-primary">Update Now</button>
+                    <button id="saveBtn" class="btn btn-success ms-2">Save Images</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Depth Map Interpretation</h5>
+            </div>
+            <div class="card-body">
+                <p>The depth map shows the estimated distance of objects from the cameras:</p>
+                <ul>
+                    <li><strong>Brighter colors (yellow to white)</strong>: Objects closer to the cameras</li>
+                    <li><strong>Darker colors (blue to purple)</strong>: Objects farther from the cameras</li>
+                    <li><strong>Black areas</strong>: Regions where depth couldn't be reliably estimated</li>
+                </ul>
+                <p>For best results:</p>
+                <ul>
+                    <li>Ensure good lighting conditions</li>
+                    <li>Use scenes with good texture and distinctive features</li>
+                    <li>Keep cameras well calibrated and aligned</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Result images
+        const leftImage = document.getElementById('leftImage');
+        const rightImage = document.getElementById('rightImage');
+        const disparityImage = document.getElementById('disparityImage');
+        const depthImage = document.getElementById('depthImage');
+        
+        // Control elements
+        const autoUpdateCheckbox = document.getElementById('autoUpdateCheckbox');
+        const updateRateRange = document.getElementById('updateRateRange');
+        const updateRateValue = document.getElementById('updateRateValue');
+        const updateBtn = document.getElementById('updateBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        
+        let updateInterval = null;
+        
+        // Update rate display
+        updateRateRange.addEventListener('input', () => {
+            const rate = updateRateRange.value;
+            updateRateValue.textContent = rate;
+            
+            // Update interval if auto-update is enabled
+            updateInterval();
+        });
+        
+        // Toggle auto-update
+        autoUpdateCheckbox.addEventListener('change', () => {
+            updateInterval();
+        });
+        
+        // Manual update button
+        updateBtn.addEventListener('click', () => {
+            updateImages();
+        });
+        
+        // Save images button
+        saveBtn.addEventListener('click', () => {
+            // Create links to download each image
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            
+            downloadImage(leftImage.src, `left_${timestamp}.jpg`);
+            downloadImage(rightImage.src, `right_${timestamp}.jpg`);
+            downloadImage(disparityImage.src, `disparity_${timestamp}.jpg`);
+            downloadImage(depthImage.src, `depth_${timestamp}.jpg`);
+        });
+        
+        // Function to download an image
+        function downloadImage(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        // Update the auto-update interval
+        function updateInterval() {
+            // Clear existing interval
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+            
+            // Set new interval if enabled
+            if (autoUpdateCheckbox.checked) {
+                const updateRate = parseFloat(updateRateRange.value);
+                const interval = 1000 / updateRate;
+                updateInterval = setInterval(updateImages, interval);
+            }
+        }
+        
+        // Update all images
+        function updateImages() {
+            // Add timestamp to prevent caching
+            const timestamp = Date.now();
+            leftImage.src = `/get_frame/left?t=${timestamp}`;
+            rightImage.src = `/get_frame/right?t=${timestamp}`;
+            disparityImage.src = `/get_frame/disparity?t=${timestamp}`;
+            depthImage.src = `/get_frame/depth?t=${timestamp}`;
+        }
+        
+        // Start auto-update on page load
+        updateInterval();
+    </script>
+</body>
+</html>
