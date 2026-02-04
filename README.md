@@ -1,5 +1,5 @@
-# image_processing
-Image Processing codes
+# Computer Vision Class Materials
+Computer Vision Class Materials and projects
 
 # interactive course
 
